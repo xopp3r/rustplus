@@ -34,6 +34,8 @@ class TokenBucket:
 
 
 class RateLimiter:
+    SOCKET_LIMIT = 25
+    SOCKET_REFRESH_AMOUNT = 3
     SERVER_LIMIT = 50
     SERVER_REFRESH_AMOUNT = 15
 
