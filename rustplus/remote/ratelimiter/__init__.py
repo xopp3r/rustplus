@@ -107,7 +107,7 @@ class RateLimiter:
         """
         Returns how long until the amount of tokens needed will be available
         """
-        
+
         with self.lock:
             delay = 0
             for bucket in [
@@ -136,5 +136,7 @@ class RateLimiter:
         with self.lock:
             del self.socket_buckets[server_details]
             server_str = server_details.get_server_string()
-            if not any(d.get_server_string() == server_str for d in self.socket_buckets):
+            if not any(
+                d.get_server_string() == server_str for d in self.socket_buckets
+            ):
                 del self.server_buckets[server_str]
