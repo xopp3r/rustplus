@@ -1,6 +1,6 @@
 import math
 import time
-import asyncio
+import threading
 from typing import Dict
 
 from ...exceptions.exceptions import RateLimitError
@@ -49,7 +49,7 @@ class RateLimiter:
     def __init__(self) -> None:
         self.socket_buckets: Dict[ServerDetails, TokenBucket] = {}
         self.server_buckets: Dict[str, TokenBucket] = {}
-        self.lock = asyncio.Lock()
+        self.lock = threading.Lock()
 
     def add_socket(
         self,
@@ -59,19 +59,21 @@ class RateLimiter:
         refresh_rate: float,
         refresh_amount: float,
     ) -> None:
-        self.socket_buckets[server_details] = TokenBucket(
-            current, maximum, refresh_rate, refresh_amount
-        )
-        if server_details.get_server_string() not in self.server_buckets:
-            self.server_buckets[server_details.get_server_string()] = TokenBucket(
-                self.SERVER_LIMIT, self.SERVER_LIMIT, 1, self.SERVER_REFRESH_AMOUNT
-            )
+        with self.lock:
+            if server_details not in self.socket_buckets:
+                self.socket_buckets[server_details] = TokenBucket(
+                    current, maximum, refresh_rate, refresh_amount
+                )
+            if server_details.get_server_string() not in self.server_buckets:
+                self.server_buckets[server_details.get_server_string()] = TokenBucket(
+                    self.SERVER_LIMIT, self.SERVER_LIMIT, 1, self.SERVER_REFRESH_AMOUNT
+                )
 
     async def can_consume(self, server_details: ServerDetails, amount: int = 1) -> bool:
         """
         Returns whether the user can consume the amount of tokens provided
         """
-        async with self.lock:
+        with self.lock:
             for bucket in [
                 self.socket_buckets.get(server_details),
                 self.server_buckets.get(server_details.get_server_string()),
@@ -85,7 +87,7 @@ class RateLimiter:
         """
         Consumes an amount of tokens from the bucket. You should first check to see whether it is possible with can_consume
         """
-        async with self.lock:
+        with self.lock:
             for bucket in [
                 self.socket_buckets.get(server_details),
                 self.server_buckets.get(server_details.get_server_string()),
@@ -105,12 +107,14 @@ class RateLimiter:
         """
         Returns how long until the amount of tokens needed will be available
         """
-        async with self.lock:
+        
+        with self.lock:
             delay = 0
             for bucket in [
                 self.socket_buckets.get(server_details),
                 self.server_buckets.get(server_details.get_server_string()),
             ]:
+                bucket.refresh()
                 val = (
                     math.ceil(
                         (
@@ -129,5 +133,8 @@ class RateLimiter:
         """
         Removes the limiter
         """
-        async with self.lock:
+        with self.lock:
             del self.socket_buckets[server_details]
+            server_str = server_details.get_server_string()
+            if not any(d.get_server_string() == server_str for d in self.socket_buckets):
+                del self.server_buckets[server_str]
