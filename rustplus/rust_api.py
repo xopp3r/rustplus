@@ -85,10 +85,10 @@ class RustSocket:
 
         self.ratelimiter.add_socket(
             self.server_details,
-            RateLimiter.SERVER_LIMIT,
-            RateLimiter.SERVER_LIMIT,
+            RateLimiter.SOCKET_LIMIT,
+            RateLimiter.SOCKET_LIMIT,
             1,
-            RateLimiter.SERVER_REFRESH_AMOUNT,
+            RateLimiter.SOCKET_REFRESH_AMOUNT,
         )
 
     async def _handle_ratelimit(self, tokens) -> None:
